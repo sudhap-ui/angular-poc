@@ -1,8 +1,22 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, BehaviorSubject } from 'rxjs';
+import { Observable, of, tap, delay, throwError } from 'rxjs';
 import { User, LoginRequest, LoginResponse } from '@app/models';
 import { environment } from '@environments/environment';
+
+// Mock user data for demo
+const MOCK_USERS: { [key: string]: string } = {
+  'demo@example.com': 'password123'
+};
+
+const MOCK_USER: User = {
+  id: '1',
+  name: 'Demo User',
+  email: 'demo@example.com',
+  phone: '+91 98765 43210',
+  createdAt: new Date(),
+  updatedAt: new Date()
+};
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -15,6 +29,29 @@ export class AuthService {
   }
 
   login(credentials: LoginRequest): Observable<LoginResponse> {
+    // Mock API call
+    if (environment.enableMockData) {
+      const user = MOCK_USERS[credentials.email];
+      if (user && user === credentials.password) {
+        const response: LoginResponse = {
+          user: MOCK_USER,
+          token: 'mock-jwt-token-' + Date.now(),
+          refreshToken: 'mock-refresh-token-' + Date.now(),
+          expiresIn: 3600
+        };
+        return of(response).pipe(
+          delay(500),
+          tap(response => {
+            this.setToken(response.token, response.refreshToken, response.expiresIn);
+            this.currentUser.set(response.user);
+            this.isAuthenticatedSubject.next(true);
+          })
+        );
+      } else {
+        return throwError(() => new Error('Invalid credentials'));
+      }
+    }
+    
     return this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, credentials)
       .pipe(
         tap(response => {
@@ -58,3 +95,5 @@ export class AuthService {
     }
   }
 }
+
+import { BehaviorSubject } from 'rxjs';
